@@ -1,0 +1,10 @@
+# Declares the `live` tag so tagging is not an "unknown tag" error.
+#
+# Live tests need a running backend, so they are excluded at the call site
+# rather than skipped here — `skip:` cannot be overridden by `--tags`, which
+# would make them unrunnable.
+#
+#   flutter test --exclude-tags live    # default, offline
+#   flutter test --tags live            # requires `make dev`
+tags:
+  live:

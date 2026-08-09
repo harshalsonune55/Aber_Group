@@ -1,0 +1,51 @@
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+!infra/**/*.key.example
+secrets/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# --- Flutter / Dart ---
+apps/app/.dart_tool/
+apps/app/build/
+apps/app/.flutter-plugins
+apps/app/.flutter-plugins-dependencies
+apps/app/ios/Pods/
+apps/app/macos/Pods/
+apps/app/**/Flutter/ephemeral/
+apps/app/**/*.g.dart
+apps/app/**/*.freezed.dart
+packages/*/.dart_tool/
+packages/*/build/
+*.iml
+
+# --- Local data ---
+data/
+pgdata/
+miniodata/
+*.sqlite
+*.db
+*.log
+
+# --- Editors / OS ---
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/settings.json.example
+*.swp

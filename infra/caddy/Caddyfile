@@ -1,0 +1,61 @@
+# Caddy handles TLS automatically via ACME. In production ABER_DOMAIN is the
+# real hostname and certificates are issued on first boot; locally it stays
+# "localhost" and Caddy uses its internal CA.
+
+{
+	email ops@abergroup.ae
+	# Uncomment while testing certificate issuance to avoid Let's Encrypt rate limits:
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+{$ABER_DOMAIN:localhost} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# The API serves JSON to a native client, never HTML to a browser, so a
+		# maximally restrictive CSP costs nothing.
+		Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+		-Server
+	}
+
+	# Server-sent events for the director dashboard. Buffering must stay off or
+	# live counters arrive in batches minutes late.
+	handle /api/v1/director/*/stream {
+		reverse_proxy api:8000 {
+			flush_interval -1
+			transport http {
+				read_timeout 0
+			}
+		}
+	}
+
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	handle /health* {
+		reverse_proxy api:8000
+	}
+
+	handle /openapi.json {
+		reverse_proxy api:8000
+	}
+
+	# Metrics are scraped from inside the Docker network only.
+	handle /metrics {
+		respond "Not Found" 404
+	}
+
+	handle {
+		respond "Aber Group API" 200
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

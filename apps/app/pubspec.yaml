@@ -1,0 +1,50 @@
+name: aber_app
+description: "Aber Group internal management platform"
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # --- State management ---
+  # Riverpod over BLoC: async caching, invalidation and dependency composition
+  # are first-class, which is exactly what an offline-first app with a sync
+  # engine needs. See docs/adr/0003.
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # --- Navigation ---
+  go_router: ^14.6.2
+
+  # --- Networking ---
+  dio: ^5.7.0
+
+  # --- Local storage (M3 brings Drift + SQLCipher; secure storage lands now
+  #     because auth tokens arrive in M1) ---
+  flutter_secure_storage: ^9.2.2
+  shared_preferences: ^2.3.3
+
+  # --- Utilities ---
+  uuid: ^4.5.1
+  intl: ^0.19.0
+  connectivity_plus: ^6.1.0
+  package_info_plus: ^8.1.1
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  riverpod_generator: ^2.6.3
+  riverpod_lint: ^2.6.3
+  custom_lint: ^0.7.6
+  build_runner: ^2.4.13
+  mocktail: ^1.0.4
+
+flutter:
+  uses-material-design: true

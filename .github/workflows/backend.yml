@@ -1,0 +1,96 @@
+name: backend
+
+on:
+  push:
+    branches: [main]
+    paths: ['apps/api/**', '.github/workflows/backend.yml']
+  pull_request:
+    paths: ['apps/api/**', '.github/workflows/backend.yml']
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: apps/api
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check src tests
+      - run: ruff format --check src tests
+      - run: mypy src
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: aber
+          POSTGRES_PASSWORD: aber
+          POSTGRES_DB: aber_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U aber"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7.4
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 3s
+          --health-retries 5
+
+    env:
+      ABER_TEST_DATABASE_URL: postgresql+psycopg://aber:aber@localhost:5432/aber_test
+      ABER_DATABASE_URL: postgresql+asyncpg://aber:aber@localhost:5432/aber_test
+      ABER_DATABASE_URL_SYNC: postgresql+psycopg://aber:aber@localhost:5432/aber_test
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - name: Unit tests
+        run: pytest tests/unit -q
+      - name: Integration tests
+        run: pytest tests/integration -q
+      - name: Coverage on pure domain logic
+        # domain/ holds the commission maths. A gap here is money, so it is the
+        # one package with a hard coverage floor.
+        run: pytest tests/unit --cov=src/aber/domain --cov-report=term-missing
+
+  api-contract:
+    # The Dart client is generated from this schema. Regenerating it here and
+    # failing on a diff turns backend/client contract drift into a PR failure
+    # rather than a runtime error on an agent's phone.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - name: Regenerate the OpenAPI schema
+        run: python scripts/export_openapi.py > ../../packages/api_client/openapi.json
+      - name: Fail if the committed schema is stale
+        run: |
+          if ! git diff --exit-code --stat ../../packages/api_client/openapi.json; then
+            echo "::error::openapi.json is out of date — run 'make api-client' and commit the result"
+            exit 1
+          fi

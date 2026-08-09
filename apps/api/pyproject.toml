@@ -1,0 +1,115 @@
+[project]
+name = "aber-api"
+version = "0.1.0"
+description = "Aber Group internal management platform — backend API"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.6.0",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30.0",
+    "psycopg[binary]>=3.2.0",
+    "alembic>=1.14.0",
+    "celery[redis]>=5.4.0",
+    "redis>=5.2.0",
+    "celery-redbeat>=2.2.0",
+    "pyjwt[crypto]>=2.9.0",
+    "argon2-cffi>=23.1.0",
+    "cryptography>=43.0.0",
+    "httpx>=0.27.0",
+    "pybreaker>=1.2.0",
+    "boto3>=1.35.0",
+    "structlog>=24.4.0",
+    "python-multipart>=0.0.12",
+    "prometheus-fastapi-instrumentator>=7.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "testcontainers[postgres]>=4.8.0",
+    "polyfactory>=2.18.0",
+    "hypothesis>=6.115.0",
+    "schemathesis>=3.38.0",
+    "ruff>=0.7.0",
+    "mypy>=1.13.0",
+    "types-boto3",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/aber"]
+
+# ---------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",      # pycodestyle / pyflakes
+    "I",                # isort
+    "UP",               # pyupgrade
+    "B",                # bugbear
+    "C4",               # comprehensions
+    "SIM",              # simplify
+    "RUF",
+    "ASYNC",
+    "S",                # bandit
+    "DTZ",              # naive-datetime bans — every timestamp must be tz-aware
+]
+ignore = [
+    "S101",   # assert is fine in tests and in ownership-contract guards
+    "B008",   # FastAPI Depends() in defaults is the documented idiom
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106", "S311"]
+"migrations/**" = ["E501", "I001"]
+
+# ---------------------------------------------------------------- mypy
+# Strict only where correctness is load-bearing: pure domain logic and the
+# service layer. Routers and migrations are checked loosely.
+[tool.mypy]
+python_version = "3.12"
+warn_unused_configs = true
+plugins = ["pydantic.mypy"]
+exclude = ["migrations/"]
+
+[[tool.mypy.overrides]]
+module = ["aber.domain.*", "aber.services.*", "aber.integrations.odoo.*"]
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["celery.*", "pybreaker.*", "redbeat.*"]
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-q --strict-markers"
+markers = [
+    "odoo: requires a running Odoo container (deselect with '-m \"not odoo\"')",
+    "integration: requires Postgres via testcontainers",
+    "e2e: requires the full stack running",
+]
+filterwarnings = [
+    "error",
+    # Starlette's TestClient imports httpx and warns about it. Nothing we can
+    # act on, and it buries the pass/fail summary in every local run.
+    "ignore:Using `httpx` with `starlette.testclient`:DeprecationWarning",
+    "ignore:Using `httpx` with `starlette.testclient`:UserWarning",
+]
+
+[tool.coverage.run]
+source = ["src/aber"]
+omit = ["*/migrations/*"]

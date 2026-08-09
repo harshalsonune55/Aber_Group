@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DEBUG BUILDS ONLY. Resource merging makes this file shadow the one in
+  src/main/res/xml, so it can never reach a release APK — release keeps the
+  HTTPS-only policy.
+
+  Android 9 (API 28) blocks cleartext HTTP by default. Without this, a debug
+  build on a real phone fails to reach a developer's `make dev` server with no
+  useful error: the request simply dies.
+
+  Cleartext is permitted globally rather than per-address on purpose. Android
+  matches <domain> entries as hostname suffixes, not CIDR ranges, so listing a
+  range such as "10.0.0.0" does NOT match a DHCP-assigned address like
+  10.81.x.y — it looks correct and silently fails. A dev machine's LAN address
+  changes anyway; hardcoding it guarantees a broken setup for the next person.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <!-- Lets a debug build trust a locally installed CA, e.g. Caddy's
+                 internal root when testing TLS against a dev machine. -->
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Production network policy: HTTPS only.
+
+  The app carries employee passport scans, salary data and GPS attendance, so
+  plain HTTP is never acceptable in a shipped build. The debug variant overrides
+  this file (see src/debug/res/xml/) to permit cleartext to private addresses,
+  which is what lets a phone reach a developer's machine on the office wifi.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
