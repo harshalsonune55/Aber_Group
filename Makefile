@@ -50,6 +50,13 @@ db-drop: ## Drop the local databases (destructive)
 	psql -d postgres -c "DROP DATABASE IF EXISTS aber_test"
 
 # ----------------------------------------------------------------- run
+# Import the package from src rather than trusting the editable install. pip's
+# generated .pth in site-packages is written without a trailing newline, which
+# `site` silently skips — presenting as "No module named 'aber'" on a machine
+# that worked an hour earlier. Setting this makes local runs deterministic.
+# Docker installs the package normally and needs none of this.
+export PYTHONPATH := $(CURDIR)/$(API_DIR)/src
+
 .PHONY: dev
 dev: ## Run the API locally with hot reload
 	cd $(API_DIR) && .venv/bin/uvicorn aber.main:app --reload --host 0.0.0.0 --port 8000

@@ -95,6 +95,11 @@ ignore_missing_imports = true
 # ---------------------------------------------------------------- pytest
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Import the package from src directly rather than relying on the editable
+# install's .pth file. That file is a single line in site-packages and is
+# silently ignored if anything truncates it — which presents as every test
+# failing with "No module named 'aber'" on a machine that worked yesterday.
+pythonpath = ["src"]
 asyncio_mode = "auto"
 addopts = "-q --strict-markers"
 markers = [

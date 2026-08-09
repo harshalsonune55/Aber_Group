@@ -1,0 +1,114 @@
+# Render blueprint — one-click deploy of the API, worker, Postgres and Redis.
+#
+# SCOPE: this is for demos, staging and sharing a working URL with the client.
+# It is NOT the production target. Render has no UAE region, and the platform
+# handles employee passport scans, Emirates ID numbers, salary data and GPS
+# attendance — see docs/adr and docs/data-protection. Production runs on a
+# UAE-region host per the compliance analysis in the project plan.
+#
+# Use: Render dashboard -> New -> Blueprint -> point at this repo.
+
+databases:
+  - name: aber-db
+    databaseName: aber
+    user: aber
+    plan: free            # upgrade before any real data; free instances expire
+
+services:
+  # ---------------------------------------------------------------- API
+  - type: web
+    name: aber-api
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: ./apps/api
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ABER_ENV
+        value: staging
+      - key: ABER_DEBUG
+        value: "false"
+      - key: ABER_LOG_JSON
+        value: "true"
+
+      # Render supplies a bare postgresql:// URL. Settings rewrites it onto the
+      # asyncpg driver and derives the psycopg URL Alembic needs, so this one
+      # variable is all that is required.
+      - key: ABER_DATABASE_URL
+        fromDatabase:
+          name: aber-db
+          property: connectionString
+
+      - key: ABER_REDIS_URL
+        fromService:
+          type: redis
+          name: aber-redis
+          property: connectionString
+      - key: ABER_CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: aber-redis
+          property: connectionString
+      - key: ABER_CELERY_RESULT_BACKEND
+        fromService:
+          type: redis
+          name: aber-redis
+          property: connectionString
+
+      # Generated once by Render and shared with the worker below.
+      - key: ABER_FIELD_ENCRYPTION_KEY
+        generateValue: true
+      - key: ABER_ODOO_WEBHOOK_SECRET
+        generateValue: true
+
+      # Free instances have limited memory; more workers only causes swapping.
+      - key: WEB_CONCURRENCY
+        value: "2"
+      - key: RUN_MIGRATIONS_ON_START
+        value: "true"
+
+  # ---------------------------------------------------------------- worker
+  # Idle until M2 brings the Odoo sync tasks, but wired now so the deploy shape
+  # is proven before it carries anything important.
+  - type: worker
+    name: aber-worker
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: ./apps/api
+    plan: free
+    dockerCommand: >-
+      celery -A aber.workers.celery_app:celery_app worker
+      --loglevel=info --concurrency=2
+      --queues=default,odoo_push,odoo_pull,notify,reports
+    envVars:
+      - key: ABER_ENV
+        value: staging
+      - key: ABER_DATABASE_URL
+        fromDatabase:
+          name: aber-db
+          property: connectionString
+      - key: ABER_CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: aber-redis
+          property: connectionString
+      - key: ABER_CELERY_RESULT_BACKEND
+        fromService:
+          type: redis
+          name: aber-redis
+          property: connectionString
+      # Must match the API's key or encrypted columns cannot be read back.
+      - key: ABER_FIELD_ENCRYPTION_KEY
+        fromService:
+          type: web
+          name: aber-api
+          envVarKey: ABER_FIELD_ENCRYPTION_KEY
+
+  # ---------------------------------------------------------------- redis
+  - type: redis
+    name: aber-redis
+    plan: free
+    # noeviction: this is a Celery broker, and evicting keys under memory
+    # pressure would silently drop queued jobs.
+    maxmemoryPolicy: noeviction
+    ipAllowList: []        # reachable only from inside the Render network

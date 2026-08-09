@@ -40,12 +40,15 @@ COPY --chown=aber:aber migrations ./migrations
 COPY --chown=aber:aber src ./src
 COPY --chown=aber:aber scripts ./scripts
 
+RUN chmod +x scripts/start.sh
+
 USER aber
 EXPOSE 8000
 
 # Liveness only — deliberately not /health/ready, because readiness checks
 # dependencies and a transient Postgres blip should not kill the container.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD curl -fsS http://localhost:8000/health || exit 1
+    CMD curl -fsS "http://localhost:${PORT:-8000}/health" || exit 1
 
-CMD ["uvicorn", "aber.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+# start.sh reads $PORT, which managed platforms assign at runtime.
+CMD ["./scripts/start.sh"]

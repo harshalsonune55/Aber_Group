@@ -10,6 +10,20 @@ from pydantic import Field, PostgresDsn, RedisDsn, field_validator, model_valida
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def _with_driver(value: object, driver: str) -> object:
+    """Rewrite a Postgres URL's scheme to `postgresql+<driver>`.
+
+    Leaves non-strings and non-Postgres values untouched so Pydantic still
+    reports a useful validation error rather than a mangled one.
+    """
+    if not isinstance(value, str):
+        return value
+    scheme, separator, rest = value.partition("://")
+    if not separator or not scheme.startswith(("postgres", "postgresql")):
+        return value
+    return f"postgresql+{driver}://{rest}"
+
+
 class Environment(StrEnum):
     DEVELOPMENT = "development"
     STAGING = "staging"
@@ -36,8 +50,14 @@ class Settings(BaseSettings):
     # --- Database ---
     # Pydantic validates these as DSNs but accepts a string literal as the
     # default; mypy sees only the declared type, hence the assignment ignores.
+    #
+    # Only ABER_DATABASE_URL needs setting. Managed hosts (Render, Railway,
+    # Fly, Heroku) hand out a bare `postgresql://...`, which SQLAlchemy would
+    # load with psycopg2 — wrong for our async engine. Both the driver and the
+    # sync variant are derived below, so a copied-and-pasted connection string
+    # works unmodified.
     database_url: PostgresDsn = "postgresql+asyncpg://aber:aber@localhost:5432/aber"  # type: ignore[assignment]
-    database_url_sync: PostgresDsn = "postgresql+psycopg://aber:aber@localhost:5432/aber"  # type: ignore[assignment]
+    database_url_sync: PostgresDsn | None = None
     db_pool_size: int = 10
     db_max_overflow: int = 20
     db_echo: bool = False
@@ -100,6 +120,33 @@ class Settings(BaseSettings):
     @classmethod
     def _upper(cls, v: str) -> str:
         return v.upper()
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _force_async_driver(cls, v: object) -> object:
+        """Normalise a managed host's connection string onto the async driver.
+
+        Providers emit `postgresql://` (and Heroku still emits the long-deprecated
+        `postgres://`). Left alone, SQLAlchemy picks psycopg2 and the async engine
+        fails at startup with a driver error that reads like a bug in our code.
+        """
+        return _with_driver(v, "asyncpg")
+
+    @model_validator(mode="after")
+    def _derive_sync_url(self) -> Settings:
+        """Point Alembic and the Celery workers at the same database.
+
+        Derived rather than configured separately so the two can never drift —
+        migrating one database while serving another is a painful way to spend
+        an afternoon.
+        """
+        if self.database_url_sync is None:
+            object.__setattr__(
+                self,
+                "database_url_sync",
+                _with_driver(str(self.database_url), "psycopg"),
+            )
+        return self
 
     @property
     def is_production(self) -> bool:

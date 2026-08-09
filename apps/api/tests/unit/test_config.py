@@ -55,6 +55,48 @@ class TestProductionGuards:
         assert settings.s3_secret_key == ""
 
 
+class TestDatabaseUrlNormalisation:
+    """Managed hosts hand out a bare postgresql:// URL. It must just work."""
+
+    def test_bare_postgresql_url_gets_the_async_driver(self) -> None:
+        settings = Settings(database_url="postgresql://u:p@db.host:5432/aber")
+        assert str(settings.database_url).startswith("postgresql+asyncpg://")
+
+    def test_heroku_style_postgres_scheme_is_upgraded(self) -> None:
+        # Heroku still emits the long-deprecated `postgres://`.
+        settings = Settings(database_url="postgres://u:p@db.host:5432/aber")
+        assert str(settings.database_url).startswith("postgresql+asyncpg://")
+
+    def test_an_explicit_async_driver_is_left_alone(self) -> None:
+        settings = Settings(database_url="postgresql+asyncpg://u:p@db.host:5432/aber")
+        assert str(settings.database_url).startswith("postgresql+asyncpg://")
+
+    def test_sync_url_is_derived_from_the_async_one(self) -> None:
+        settings = Settings(database_url="postgresql://u:p@db.host:5432/aber")
+        assert str(settings.database_url_sync).startswith("postgresql+psycopg://")
+
+    def test_derived_urls_address_the_same_database(self) -> None:
+        # Migrating one database while serving another is the failure this
+        # derivation exists to prevent.
+        settings = Settings(database_url="postgresql://u:p@db.host:5432/aber")
+        async_target = str(settings.database_url).split("://", 1)[1]
+        sync_target = str(settings.database_url_sync).split("://", 1)[1]
+        assert async_target == sync_target
+
+    def test_an_explicit_sync_url_is_respected(self) -> None:
+        settings = Settings(
+            database_url="postgresql://u:p@primary:5432/aber",
+            database_url_sync="postgresql+psycopg://u:p@replica:5432/aber",
+        )
+        assert "replica" in str(settings.database_url_sync)
+
+    def test_credentials_and_query_parameters_survive(self) -> None:
+        settings = Settings(database_url="postgresql://user:pa55@db.host:5432/aber?sslmode=require")
+        rendered = str(settings.database_url)
+        assert "user:pa55@db.host:5432" in rendered
+        assert "sslmode=require" in rendered
+
+
 class TestGeneralSettings:
     def test_log_level_is_normalised_to_upper_case(self) -> None:
         assert Settings(log_level="debug").log_level == "DEBUG"

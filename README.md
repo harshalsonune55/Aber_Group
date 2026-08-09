@@ -100,6 +100,26 @@ M2. Native app builds (`make app-macos`, `app-android`, …) need full Xcode and
 completed Android SDK tooling; until then CI builds those on every push. See
 [docs/runbooks](docs/runbooks/).
 
+## Hosting the backend
+
+Fastest route to a live URL: push to GitHub, then Render → **New → Blueprint** →
+select this repo. `render.yaml` provisions the API, a Celery worker, Postgres
+and Redis, and migrations run on start.
+
+```bash
+curl https://<your-service>.onrender.com/health
+```
+
+**Render is for demos and staging, not production.** It has no UAE region, and
+this platform stores passport scans, Emirates ID numbers, salary figures and GPS
+attendance. Production runs on a UAE-region host — see
+[docs/runbooks/hosting-the-backend.md](docs/runbooks/hosting-the-backend.md) for
+both paths, including the `docker compose` deployment and the secrets you must
+generate first.
+
+Only `ABER_DATABASE_URL` needs setting; the app rewrites a bare `postgresql://`
+onto the async driver and derives the sync URL that Alembic and Celery use.
+
 ## Layout
 
 | Path | Contents |
