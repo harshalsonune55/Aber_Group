@@ -1,0 +1,31 @@
+# Keeps the build context small and keeps local secrets out of it entirely.
+# Without this the context includes .venv — hundreds of megabytes uploaded on
+# every build, for files the image rebuilds from scratch anyway.
+
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+tests/
+
+.git/
+.gitignore
+*.md
+!README.md
+
+.DS_Store
+*.log

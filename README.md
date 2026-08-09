@@ -102,9 +102,10 @@ completed Android SDK tooling; until then CI builds those on every push. See
 
 ## Hosting the backend
 
-Fastest route to a live URL: push to GitHub, then Render → **New → Blueprint** →
-select this repo. `render.yaml` provisions the API, a Celery worker, Postgres
-and Redis, and migrations run on start.
+Fastest route to a live URL: Render → **New → Blueprint** → select this repo.
+`render.yaml` provisions the API, Postgres and a Key Value (Redis) instance, and
+migrations run on start. No Celery worker: Render's free plan does not allow
+them, and nothing needs one until the Odoo sync tasks arrive in M2.
 
 ```bash
 curl https://<your-service>.onrender.com/health

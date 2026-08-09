@@ -22,28 +22,46 @@ project plan reached, and nothing here changes it.
 
 ## Option A — Render (fastest way to a live URL)
 
-`render.yaml` in the repo root describes the API, a Celery worker, Postgres and
-Redis.
+`render.yaml` in the repo root declares three resources: the API (web), Postgres,
+and a Key Value instance for Redis. All in `frankfurt`, which is the closest
+Render region to the UAE.
 
 1. Sign in at [render.com](https://render.com) with GitHub.
-2. **New → Blueprint**, select `harshalsonune55/Aber_Group`.
-3. Render reads `render.yaml`, shows the four resources, and you click **Apply**.
-4. First deploy takes 5–10 minutes (it builds the Docker image).
-5. You get `https://aber-api.onrender.com`. Check it:
+2. **New → Blueprint**, then authorise Render to read
+   `harshalsonune55/Aber_Group` and select it.
+3. Render parses `render.yaml` and lists the three resources. Click **Apply**.
+4. First deploy takes 5–10 minutes — it builds the Docker image from
+   `apps/api/Dockerfile`.
+5. You get a URL like `https://aber-api.onrender.com`:
 
 ```bash
-curl https://aber-api.onrender.com/health
-curl https://aber-api.onrender.com/health/ready
-open https://aber-api.onrender.com/docs
+curl https://aber-api.onrender.com/health         # {"status":"ok",...}
+curl https://aber-api.onrender.com/health/ready   # postgres healthy
+open  https://aber-api.onrender.com/docs          # interactive API browser
 ```
 
-Migrations run automatically at container start
-(`RUN_MIGRATIONS_ON_START=true`). With more than one instance, switch that off
-and use a pre-deploy command instead, or several instances race each other.
+Migrations run at container start (`RUN_MIGRATIONS_ON_START=true`). That is safe
+with a single instance. With more than one, turn it off and run
+`alembic upgrade head` as a pre-deploy command, or instances race applying the
+same migration.
 
-**Free tier caveats:** the web service sleeps after 15 minutes idle and takes
-~30 seconds to wake, and free Postgres instances are deleted after 90 days.
-Fine for a demo, not for a pilot.
+### Why there is no worker service
+
+Render's free plan does not support background workers — `free` is unavailable
+for private services, workers and cron jobs — and including one makes the whole
+blueprint fail to apply. Nothing needs it yet: the Celery beat schedule is empty
+until M2 brings the Odoo sync tasks. A commented-out worker block sits at the
+bottom of `render.yaml`; enable it and move to a paid instance type when M2
+lands.
+
+### Free tier caveats
+
+* The web service **sleeps after 15 minutes idle** and takes ~30 seconds to wake.
+  The first request after a pause will look like a timeout in the app.
+* Free Postgres instances are **deleted after 90 days**.
+* 512 MB RAM, hence `WEB_CONCURRENCY=2`.
+
+Fine for a demo. Not for a pilot with real users.
 
 ### Pointing the phone app at it
 
