@@ -22,9 +22,10 @@ project plan reached, and nothing here changes it.
 
 ## Option A — Render (fastest way to a live URL)
 
-`render.yaml` in the repo root declares three resources: the API (web), Postgres,
-and a Key Value instance for Redis. All in `frankfurt`, which is the closest
-Render region to the UAE.
+`render.yaml` in the repo root declares **two** resources: the API (web) and
+Postgres, both in `frankfurt` — the closest Render region to the UAE. Deliberately
+minimal, because Render caps resources per workspace and neither Redis nor a
+worker is used yet.
 
 1. Sign in at [render.com](https://render.com) with GitHub.
 2. **New → Blueprint**, then authorise Render to read
@@ -45,14 +46,33 @@ with a single instance. With more than one, turn it off and run
 `alembic upgrade head` as a pre-deploy command, or instances race applying the
 same migration.
 
-### Why there is no worker service
+### Why there is no worker, and no Redis
 
-Render's free plan does not support background workers — `free` is unavailable
-for private services, workers and cron jobs — and including one makes the whole
-blueprint fail to apply. Nothing needs it yet: the Celery beat schedule is empty
-until M2 brings the Odoo sync tasks. A commented-out worker block sits at the
-bottom of `render.yaml`; enable it and move to a paid instance type when M2
-lands.
+**Worker:** Render's free plan does not support background workers — `free` is
+unavailable for private services, workers and cron jobs — and including one makes
+the whole blueprint fail to apply.
+
+**Redis / Key Value:** nothing in a request path touches it. It is the Celery
+broker, read only by the worker process. The API serves fine without it, verified
+by running the container with no `ABER_REDIS_URL` set at all. Provisioning it now
+would consume a workspace slot for something unused.
+
+Both arrive with the Odoo sync tasks in M2, on a paid instance type. Commented-out
+blocks for each sit at the bottom of `render.yaml`.
+
+### "Additional services & databases will exceed limit of 25"
+
+This is about your Render **workspace**, not the blueprint — you already have
+resources using up the 25-per-workspace cap. The blueprint only asks for two.
+
+Fix it by freeing slots: open
+[dashboard.render.com](https://dashboard.render.com), and for each service you no
+longer need choose **Settings → Delete**. Suspended and failed services still
+count toward the limit, as do Postgres instances, so check those too. Free
+Postgres instances that expired after 90 days are a common source of forgotten
+resources.
+
+Then retry **New → Blueprint**.
 
 ### Free tier caveats
 

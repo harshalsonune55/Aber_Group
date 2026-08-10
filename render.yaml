@@ -1,4 +1,4 @@
-# Render blueprint — API, Postgres and Key Value (Redis), deployable on the free tier.
+# Render blueprint — the API and Postgres. Two resources, deliberately minimal.
 #
 # SCOPE: demos, staging, and sharing a working URL with the client. This is NOT
 # the production target. Render has no UAE region, and the platform handles
@@ -18,17 +18,16 @@ databases:
     postgresMajorVersion: "16"
 
 services:
-  # ---------------------------------------------------------------- API
   - type: web
     name: aber-api
     runtime: docker
     repo: https://github.com/harshalsonune55/Aber_Group
     branch: main
     plan: free
-    region: frankfurt          # all services must share a region to talk privately
+    region: frankfurt          # must match the database to reach it privately
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: ./apps/api
-    healthCheckPath: /health   # liveness only — never /health/ready, see the router
+    healthCheckPath: /health   # liveness only — never /health/ready
     envVars:
       - key: ABER_ENV
         value: staging
@@ -45,25 +44,9 @@ services:
           name: aber-db
           property: connectionString
 
-      - key: ABER_REDIS_URL
-        fromService:
-          type: keyvalue
-          name: aber-redis
-          property: connectionString
-      - key: ABER_CELERY_BROKER_URL
-        fromService:
-          type: keyvalue
-          name: aber-redis
-          property: connectionString
-      - key: ABER_CELERY_RESULT_BACKEND
-        fromService:
-          type: keyvalue
-          name: aber-redis
-          property: connectionString
-
-      # Generated once by Render and stored encrypted. If a worker is added
-      # later it must reference this exact value, or columns encrypted by one
-      # process cannot be read by the other.
+      # Generated once by Render and stored encrypted. A worker added later must
+      # reference these exact values, or data encrypted by one process cannot be
+      # read by the other.
       - key: ABER_FIELD_ENCRYPTION_KEY
         generateValue: true
       - key: ABER_ODOO_WEBHOOK_SECRET
@@ -74,28 +57,31 @@ services:
         value: "2"
       # Safe while there is a single instance. With more than one, turn this off
       # and run `alembic upgrade head` as a pre-deploy command instead —
-      # otherwise instances race each other applying the same migration.
+      # otherwise instances race applying the same migration.
       - key: RUN_MIGRATIONS_ON_START
         value: "true"
 
-  # ---------------------------------------------------------------- Key Value
-  - type: keyvalue              # `redis` is a deprecated alias for this
-    name: aber-redis
-    plan: free
-    region: frankfurt
-    # This is a Celery broker. Evicting keys under memory pressure would
-    # silently drop queued jobs, so eviction is disabled outright.
-    maxmemoryPolicy: noeviction
-    ipAllowList: []             # required field; empty means internal access only
-
-# ---------------------------------------------------------------- worker
-# Deliberately absent. Render's free plan does not support background workers
-# (`free` is unavailable for private services, workers and cron jobs), and a
-# worker on the blueprint would make the whole Apply fail.
+# ---------------------------------------------------------------------------
+# Not here yet, and why
 #
-# Nothing needs it yet: the Celery beat schedule is empty until M2 brings the
-# Odoo sync tasks. When those land, add the block below and move the API and
-# worker to a paid instance type.
+# Redis / Key Value: nothing in a request path touches it. It is the Celery
+# broker, read only by the worker process, so the API serves fine without it —
+# verified by running the container with no ABER_REDIS_URL set at all. Adding it
+# now would burn a slot against Render's per-workspace resource limit for
+# something unused.
+#
+# Worker: Render's free plan does not support background workers (`free` is
+# unavailable for private services, workers and cron jobs), and including one
+# fails the entire blueprint. The beat schedule is empty until M2 anyway.
+#
+# Both arrive together with the Odoo sync tasks in M2, on a paid instance type:
+#
+#   - type: keyvalue
+#     name: aber-redis
+#     plan: starter
+#     region: frankfurt
+#     maxmemoryPolicy: noeviction   # evicting keys would drop queued jobs
+#     ipAllowList: []               # required field; empty = internal only
 #
 #   - type: worker
 #     name: aber-worker
