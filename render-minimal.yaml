@@ -1,0 +1,52 @@
+# Render blueprint — API ONLY. One resource.
+#
+# For workspaces at Render's Hobby cap of 25 services (suspended services count
+# too). Postgres lives on a separate free provider — Neon or Supabase — so it
+# consumes no Render slot at all.
+#
+# Use this INSTEAD of render.yaml:
+#   Render -> New -> Blueprint -> select repo -> set Blueprint Path to
+#   render-minimal.yaml -> Apply
+#
+# You will be prompted for ABER_DATABASE_URL during Apply (sync: false below).
+# Paste the provider's connection string exactly as given; the app rewrites the
+# scheme onto asyncpg, renames libpq's ?sslmode= to asyncpg's ?ssl=, and derives
+# the psycopg URL Alembic needs. See docs/runbooks/hosting-the-backend.md.
+#
+# When slots free up, switch to render.yaml for a managed Postgres in the same
+# region as the API.
+
+services:
+  - type: web
+    name: aber-api
+    runtime: docker
+    repo: https://github.com/harshalsonune55/Aber_Group
+    branch: main
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: ./apps/api
+    healthCheckPath: /health   # liveness only — never /health/ready
+    envVars:
+      - key: ABER_ENV
+        value: staging
+      - key: ABER_DEBUG
+        value: "false"
+      - key: ABER_LOG_JSON
+        value: "true"
+
+      # Prompted for at Apply time and stored encrypted, rather than committed.
+      # Pick a database region close to Frankfurt: every query pays the
+      # round-trip, and a database on another continent is felt on every page.
+      - key: ABER_DATABASE_URL
+        sync: false
+
+      - key: ABER_FIELD_ENCRYPTION_KEY
+        generateValue: true
+      - key: ABER_ODOO_WEBHOOK_SECRET
+        generateValue: true
+
+      - key: WEB_CONCURRENCY
+        value: "2"
+      - key: RUN_MIGRATIONS_ON_START
+        value: "true"

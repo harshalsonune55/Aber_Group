@@ -11,9 +11,21 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def _with_driver(value: object, driver: str) -> object:
-    """Rewrite a Postgres URL's scheme to `postgresql+<driver>`.
+    """Rewrite a Postgres URL onto `postgresql+<driver>`, fixing the SSL parameter.
 
-    Leaves non-strings and non-Postgres values untouched so Pydantic still
+    Two rewrites, both needed to accept a connection string pasted straight from
+    a managed provider:
+
+    1. **Scheme.** Providers emit `postgresql://` (Heroku still emits
+       `postgres://`), which SQLAlchemy loads with psycopg2 — wrong for the async
+       engine.
+    2. **SSL parameter.** Managed Postgres (Neon, Supabase, Render, Heroku)
+       appends `?sslmode=require`. That is libpq syntax: psycopg understands it,
+       **asyncpg does not**, and raises
+       `TypeError: connect() got an unexpected keyword argument 'sslmode'` at the
+       first connection rather than at startup. asyncpg spells it `ssl`.
+
+    Non-strings and non-Postgres values pass through untouched so Pydantic still
     reports a useful validation error rather than a mangled one.
     """
     if not isinstance(value, str):
@@ -21,6 +33,29 @@ def _with_driver(value: object, driver: str) -> object:
     scheme, separator, rest = value.partition("://")
     if not separator or not scheme.startswith(("postgres", "postgresql")):
         return value
+
+    base, question, query = rest.partition("?")
+    if query:
+        renamed = "ssl" if driver == "asyncpg" else "sslmode"
+        stale = "sslmode" if driver == "asyncpg" else "ssl"
+        params = [
+            f"{renamed}={param.split('=', 1)[1]}"
+            if param.split("=", 1)[0] in {"ssl", "sslmode"}
+            else param
+            for param in query.split("&")
+            if param
+        ]
+        # Guard against a URL that already carried both spellings.
+        seen_ssl = False
+        deduped = []
+        for param in params:
+            if param.startswith((f"{renamed}=", f"{stale}=")):
+                if seen_ssl:
+                    continue
+                seen_ssl = True
+            deduped.append(param)
+        rest = base + question + "&".join(deduped)
+
     return f"postgresql+{driver}://{rest}"
 
 

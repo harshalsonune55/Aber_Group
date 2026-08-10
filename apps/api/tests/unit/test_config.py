@@ -90,11 +90,40 @@ class TestDatabaseUrlNormalisation:
         )
         assert "replica" in str(settings.database_url_sync)
 
-    def test_credentials_and_query_parameters_survive(self) -> None:
+    def test_sslmode_is_renamed_for_asyncpg(self) -> None:
+        # Managed Postgres appends libpq's ?sslmode=require. psycopg understands
+        # it; asyncpg raises TypeError at the first connection, not at startup —
+        # so the app boots, passes its health check, and fails on real traffic.
+        settings = Settings(database_url="postgresql://u:p@ep-x.aws.neon.tech/aber?sslmode=require")
+        rendered = str(settings.database_url)
+        assert "ssl=require" in rendered
+        assert "sslmode=" not in rendered
+
+    def test_sync_url_keeps_libpq_sslmode_spelling(self) -> None:
+        settings = Settings(database_url="postgresql://u:p@ep-x.aws.neon.tech/aber?sslmode=require")
+        assert "sslmode=require" in str(settings.database_url_sync)
+
+    def test_other_query_parameters_are_preserved(self) -> None:
+        settings = Settings(
+            database_url="postgresql://u:p@h/db?sslmode=verify-full&application_name=aber"
+        )
+        rendered = str(settings.database_url)
+        assert "ssl=verify-full" in rendered
+        assert "application_name=aber" in rendered
+
+    def test_a_url_without_ssl_parameters_is_unchanged(self) -> None:
+        settings = Settings(
+            database_url="postgresql://aber:pw@dpg-x.frankfurt-postgres.render.com/aber"
+        )
+        assert "?" not in str(settings.database_url)
+
+    def test_credentials_and_host_survive_the_rewrite(self) -> None:
         settings = Settings(database_url="postgresql://user:pa55@db.host:5432/aber?sslmode=require")
         rendered = str(settings.database_url)
         assert "user:pa55@db.host:5432" in rendered
-        assert "sslmode=require" in rendered
+        # The SSL parameter is intentionally renamed for asyncpg; that it
+        # survives at all is covered by test_sslmode_is_renamed_for_asyncpg.
+        assert "ssl=require" in rendered
 
 
 class TestGeneralSettings:

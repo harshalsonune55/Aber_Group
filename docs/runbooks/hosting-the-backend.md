@@ -62,17 +62,32 @@ blocks for each sit at the bottom of `render.yaml`.
 
 ### "Additional services & databases will exceed limit of 25"
 
-This is about your Render **workspace**, not the blueprint — you already have
-resources using up the 25-per-workspace cap. The blueprint only asks for two.
+This is your Render **workspace**, not the blueprint. Render's Hobby plan caps a
+workspace at 25 services, and the docs are explicit that this includes
+**suspended** services. There is no way to raise the cap on Hobby.
 
-Fix it by freeing slots: open
-[dashboard.render.com](https://dashboard.render.com), and for each service you no
-longer need choose **Settings → Delete**. Suspended and failed services still
-count toward the limit, as do Postgres instances, so check those too. Free
-Postgres instances that expired after 90 days are a common source of forgotten
-resources.
+**Fix A — free two slots.** At [dashboard.render.com](https://dashboard.render.com),
+for each service you no longer need: **Settings → Delete**. Two easily missed
+categories: services showing a *Suspended* badge, and free Postgres instances
+that stopped working after their 90 days but are still listed.
 
-Then retry **New → Blueprint**.
+**Fix B — need only one slot.** Use `render-minimal.yaml`, which declares the API
+alone and takes its database from a free external provider.
+
+1. Create a free Postgres at [neon.tech](https://neon.tech) (or Supabase). Choose
+   a region near Frankfurt — every query pays the round trip.
+2. Copy the connection string. It looks like
+   `postgresql://user:pass@ep-xxx.eu-central-1.aws.neon.tech/aber?sslmode=require`.
+3. Render → **New → Blueprint** → select the repo → set **Blueprint Path** to
+   `render-minimal.yaml` → **Apply**.
+4. When prompted for `ABER_DATABASE_URL`, paste the string **exactly as given**.
+
+No editing of that URL is needed. The app rewrites the scheme onto asyncpg,
+renames libpq's `sslmode` to asyncpg's `ssl`, and derives the psycopg URL Alembic
+uses — see the SSL note below.
+
+Switch back to `render.yaml` once slots are available; a managed database in the
+same region as the API is the better arrangement.
 
 ### Free tier caveats
 
@@ -150,6 +165,16 @@ and derives the `psycopg` variant Alembic and Celery need. Setting
 `ABER_DATABASE_URL_SYNC` separately is only for pointing migrations at a
 different host, and letting the two drift means migrating one database while
 serving another.
+
+**The SSL parameter is renamed automatically, and it has to be.** Neon, Supabase,
+Render and Heroku all append `?sslmode=require` — libpq syntax. psycopg
+understands it; **asyncpg does not**, and fails with
+`TypeError: connect() got an unexpected keyword argument 'sslmode'`. The nasty
+part is *when*: not at startup, but at the first database query. The container
+starts, the `/health` liveness check passes, Render marks the deploy Live — and
+then every real request fails. `Settings` renames it to asyncpg's `ssl` for the
+async URL while leaving `sslmode` on the sync URL, so paste provider connection
+strings unmodified.
 
 **The port comes from the platform.** `scripts/start.sh` reads `$PORT`. A
 hardcoded port means the platform's health check never connects and the deploy
