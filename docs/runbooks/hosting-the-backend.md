@@ -20,6 +20,20 @@ project plan reached, and nothing here changes it.
 
 ---
 
+## Current deployment
+
+| | |
+|---|---|
+| API | https://aber-api.onrender.com |
+| Blueprint | `render-minimal.yaml` (one Render slot) |
+| Database | Neon, `eu-central-1` (Frankfurt), external to Render |
+| Environment | `staging` |
+
+Build the Android app against it with `make apk-hosted`.
+
+Staging only — Neon and Render are both in Frankfurt, not the UAE. See the
+residency note below before any real employee data is loaded.
+
 ## Option A — Render (fastest way to a live URL)
 
 `render.yaml` in the repo root declares **two** resources: the API (web) and

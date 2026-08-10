@@ -153,6 +153,19 @@ app-linux: ## Run the app on Linux
 LAN_IP ?= $(shell ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null)
 PHONE_API_URL ?= http://$(LAN_IP):8000
 
+# The deployed backend. Override for a different environment:
+#   make apk-hosted API_URL=https://staging.example.com
+API_URL ?= https://aber-api.onrender.com
+
+.PHONY: apk-hosted
+apk-hosted: ## Build a release APK pointed at the hosted backend
+	@echo "Building release APK against $(API_URL)"
+	cd $(APP_DIR) && flutter build apk --release \
+	  --dart-define=ABER_API_BASE_URL=$(API_URL) \
+	  --dart-define=ABER_ENV=staging
+	@echo ""
+	@echo "APK: $(CURDIR)/$(APP_DIR)/build/app/outputs/flutter-apk/app-release.apk"
+
 .PHONY: apk
 apk: ## Build a debug APK for a physical phone, pointed at this Mac
 	@[ -n "$(LAN_IP)" ] || (echo "Could not detect a LAN IP — are you on wifi?" && exit 1)
