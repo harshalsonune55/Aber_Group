@@ -1,8 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/auth/domain/auth_user.dart';
+import '../features/auth/presentation/sign_in_page.dart';
+import '../features/auth/presentation/sign_up_page.dart';
+import '../features/auth/presentation/starting_page.dart';
+import '../features/auth/state/auth_controller.dart';
+import '../features/estate_ops/presentation/deal_detail_page.dart';
+import '../features/estate_ops/presentation/deals_page.dart';
+import '../features/estate_ops/presentation/inventory_page.dart';
+import '../features/estate_ops/presentation/module_detail_page.dart';
+import '../features/estate_ops/presentation/more_page.dart';
+import '../features/estate_ops/presentation/person_detail_page.dart';
+import '../features/estate_ops/presentation/profile_page.dart';
+import '../features/estate_ops/presentation/property_detail_page.dart';
+import '../features/estate_ops/presentation/team_page.dart';
+import '../features/estate_ops/presentation/today_page.dart';
+import '../features/estate_ops/presentation/widgets/estate_widgets.dart';
 import '../features/settings/presentation/system_status_page.dart';
 import '../shared/responsive/aber_shell.dart';
+import '../shared/theme/estate_ops_theme.dart';
 
 /// Application routes.
 ///
@@ -12,44 +29,84 @@ import '../shared/responsive/aber_shell.dart';
 ///
 /// Deep-link paths double as push-notification targets (`aber://deal/{id}`), so
 /// route names are treated as a stable contract, not an implementation detail.
+///
+/// The five tabs mirror the Estate Ops staff-app design: Today, Inventory,
+/// Deals, Team and More. Each tab renders its own inline title, so the shell
+/// carries no separate app-bar title on any window size.
 
 const _destinations = <ShellDestination>[
   ShellDestination(
-    label: 'Home',
-    icon: Icons.dashboard_outlined,
-    selectedIcon: Icons.dashboard,
-    route: '/home',
+    label: 'Today',
+    icon: Icons.today_outlined,
+    selectedIcon: Icons.today,
+    route: '/today',
   ),
   ShellDestination(
-    label: 'Properties',
+    label: 'Inventory',
     icon: Icons.apartment_outlined,
     selectedIcon: Icons.apartment,
-    route: '/properties',
+    route: '/inventory',
   ),
   ShellDestination(
-    label: 'Leads',
-    icon: Icons.people_outline,
-    selectedIcon: Icons.people,
-    route: '/leads',
+    label: 'Deals',
+    icon: Icons.handshake_outlined,
+    selectedIcon: Icons.handshake,
+    route: '/deals',
   ),
   ShellDestination(
-    label: 'Attendance',
-    icon: Icons.schedule_outlined,
-    selectedIcon: Icons.schedule,
-    route: '/attendance',
+    label: 'Team',
+    icon: Icons.groups_outlined,
+    selectedIcon: Icons.groups,
+    route: '/team',
   ),
   ShellDestination(
-    label: 'Status',
-    icon: Icons.settings_outlined,
-    selectedIcon: Icons.settings,
-    route: '/status',
+    label: 'More',
+    icon: Icons.more_horiz_outlined,
+    selectedIcon: Icons.more_horiz,
+    route: '/more',
   ),
 ];
 
-GoRouter createRouter() {
+/// Paths reachable without a session. Everything else redirects to sign-in.
+const _publicPaths = {'/sign-in', '/sign-up'};
+
+/// Builds the app router.
+///
+/// [initialLocation] exists so tests (and, later, a cold start from a push
+/// notification) can open straight onto a deep link instead of always entering
+/// through `/today`.
+///
+/// [auth] installs the sign-in gate. It is optional so widget tests can drive a
+/// screen directly without signing in first — passing it is what the real app
+/// does, and the gate is only as good as the server behind it either way:
+/// hiding a route on the client is navigation, not authorisation.
+GoRouter createRouter({
+  String initialLocation = '/today',
+  AuthController? auth,
+}) {
   return GoRouter(
-    initialLocation: '/status',
+    initialLocation: initialLocation,
+    // Re-runs the redirect below the moment someone signs in or out.
+    refreshListenable: auth,
+    redirect: auth == null ? null : (context, state) => _guard(auth, state),
     routes: [
+      GoRoute(path: '/starting', builder: (_, __) => const StartingPage()),
+      GoRoute(
+        path: '/sign-in',
+        builder: (_, __) => const EstateOpsCompactTheme(child: SignInPage()),
+      ),
+      GoRoute(
+        path: '/sign-up',
+        builder: (_, __) => const EstateOpsCompactTheme(child: SignUpPage()),
+      ),
+      // Outside the shell on purpose: the header avatar opens the profile from
+      // whichever tab the user is on, and a branch route would switch tabs
+      // under them. This covers the shell and pops back to where they were.
+      GoRoute(
+        path: '/profile',
+        builder: (_, __) =>
+            const EstateOpsCompactTheme(child: ProfilePage()),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) => AberShell(
           destinations: _destinations,
@@ -58,27 +115,82 @@ GoRouter createRouter() {
             index,
             initialLocation: index == navigationShell.currentIndex,
           ),
-          title: _destinations[navigationShell.currentIndex].label,
+          compactTheme: EstateOpsTheme.dark(),
+          useNativeCompactChrome: true,
           child: navigationShell,
         ),
         branches: [
-          _branch(
-            '/home',
-            const _ComingSoon(module: 'Director dashboard', milestone: 'M7'),
+          _branch('/today', const TodayPage()),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/inventory',
+                builder: (_, __) => const InventoryPage(),
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    builder: (_, state) => PropertyDetailPage(
+                      listingId: state.pathParameters['id']!,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          _branch(
-            '/properties',
-            const _ComingSoon(module: 'Properties', milestone: 'M4'),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/deals',
+                builder: (_, __) => const DealsPage(),
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    builder: (_, state) =>
+                        DealDetailPage(dealId: state.pathParameters['id']!),
+                  ),
+                ],
+              ),
+            ],
           ),
-          _branch(
-            '/leads',
-            const _ComingSoon(module: 'Leads & deals', milestone: 'M5'),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/team',
+                builder: (_, __) => const TeamPage(),
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    builder: (_, state) =>
+                        PersonDetailPage(personId: state.pathParameters['id']!),
+                  ),
+                ],
+              ),
+            ],
           ),
-          _branch(
-            '/attendance',
-            const _ComingSoon(module: 'Attendance', milestone: 'M3'),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/more',
+                builder: (_, __) => const MorePage(),
+                routes: [
+                  GoRoute(
+                    path: ':key',
+                    builder: (_, state) {
+                      final key = state.pathParameters['key']!;
+                      return key == 'status'
+                          ? Scaffold(
+                              appBar: const OpsDetailAppBar(
+                                title: 'System status',
+                              ),
+                              body: const SystemStatusPage(),
+                            )
+                          : ModuleDetailPage(moduleKey: key);
+                    },
+                  ),
+                ],
+              ),
+            ],
           ),
-          _branch('/status', const SystemStatusPage()),
         ],
       ),
     ],
@@ -89,40 +201,23 @@ StatefulShellBranch _branch(String path, Widget child) => StatefulShellBranch(
   routes: [GoRoute(path: path, builder: (_, __) => child)],
 );
 
-/// Placeholder for modules landing in later milestones. Naming the milestone
-/// keeps a demo honest — nobody mistakes an empty tab for a broken one.
-class _ComingSoon extends StatelessWidget {
-  const _ComingSoon({required this.module, required this.milestone});
+/// Decides where a navigation is allowed to land, given the session.
+///
+/// Returning null means "leave it alone", which is the common case — a
+/// redirect that fires on every navigation is a redirect loop waiting to
+/// happen, so each branch here only diverts when the destination genuinely
+/// contradicts the session state.
+String? _guard(AuthController auth, GoRouterState state) {
+  final location = state.matchedLocation;
 
-  final String module;
-  final String milestone;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.construction_outlined,
-              size: 48,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: 12),
-            Text(module, style: theme.textTheme.titleLarge),
-            const SizedBox(height: 4),
-            Text(
-              'Arriving in milestone $milestone',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  return switch (auth.status) {
+    // Still reading storage: hold everyone on the splash rather than guess.
+    AuthStatus.unknown => location == '/starting' ? null : '/starting',
+    AuthStatus.signedOut =>
+      _publicPaths.contains(location) ? null : '/sign-in',
+    AuthStatus.signedIn =>
+      location == '/starting' || _publicPaths.contains(location)
+          ? '/today'
+          : null,
+  };
 }

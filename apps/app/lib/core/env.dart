@@ -1,28 +1,22 @@
-import 'dart:io' show Platform;
-
-import 'package:flutter/foundation.dart';
-
 /// Build-time configuration.
 ///
 /// Supplied with `--dart-define`, never checked in, so the same binary artefact
 /// can be pointed at staging or production without a code change:
 ///
-///   flutter run --dart-define=ABER_API_BASE_URL=https://api.abergroup.ae
+///   flutter run --dart-define=ABER_API_BASE_URL=http://localhost:8000
 class Env {
   const Env._();
 
+  static const String _hostedBaseUrl = 'https://aber-api.onrender.com';
   static const String _rawBaseUrl = String.fromEnvironment('ABER_API_BASE_URL');
 
   /// Base URL of the API.
   ///
-  /// The default is developer convenience only. Android emulators reach the
-  /// host through 10.0.2.2 rather than localhost, which is the single most
-  /// common "why can't the app see my server" question on a new machine.
+  /// The deployed Render service is the default so preview builds and phone
+  /// installs talk to the shared backend unless a developer overrides it.
   static String get apiBaseUrl {
     if (_rawBaseUrl.isNotEmpty) return _rawBaseUrl;
-    if (kIsWeb) return 'http://localhost:8000';
-    if (Platform.isAndroid) return 'http://10.0.2.2:8000';
-    return 'http://localhost:8000';
+    return _hostedBaseUrl;
   }
 
   static const String environment = String.fromEnvironment(

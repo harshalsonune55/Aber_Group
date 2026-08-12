@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'estate_ops_extras.dart';
+
 /// Material 3 theme, light and dark.
 ///
 /// Everything is built RTL-safe from day one — directional insets
@@ -26,6 +28,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
+      scaffoldBackgroundColor: scheme.surface,
       visualDensity: VisualDensity.adaptivePlatformDensity,
       appBarTheme: AppBarTheme(
         centerTitle: false,
@@ -38,8 +41,17 @@ class AppTheme {
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           side: BorderSide(color: scheme.outlineVariant),
+        ),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        labelTextStyle: WidgetStatePropertyAll(
+          TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: scheme.onSurface,
+          ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -63,6 +75,7 @@ class AppTheme {
         contentPadding: EdgeInsetsDirectional.symmetric(horizontal: 16),
       ),
       dividerTheme: DividerThemeData(color: scheme.outlineVariant, space: 1),
+      extensions: [EstateOpsExtras.fromScheme(scheme)],
     );
   }
 }

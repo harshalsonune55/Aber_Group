@@ -48,3 +48,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    # Listing photography. The checked-in files are generated placeholders —
+    # replace them with real shots under the same names and nothing else has
+    # to change. Listing.photo points at these paths.
+    - assets/listings/
