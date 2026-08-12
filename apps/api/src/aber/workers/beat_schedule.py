@@ -14,25 +14,6 @@ from typing import Any
 from celery.schedules import crontab
 
 BEAT_SCHEDULE: dict[str, dict[str, Any]] = {
-    # --- M2: Odoo sync -------------------------------------------------------
-    # "drain-outbox": {
-    #     "task": "aber.workers.tasks.odoo_push.drain_outbox",
-    #     "schedule": 15.0,
-    # },
-    # "pull-odoo-models": {
-    #     "task": "aber.workers.tasks.odoo_pull.pull_all",
-    #     "schedule": 300.0,
-    # },
-    # "odoo-health-probe": {
-    #     "task": "aber.workers.tasks.odoo_pull.health_probe",
-    #     "schedule": 60.0,
-    # },
-    # "nightly-reconcile": {
-    #     "task": "aber.workers.tasks.odoo_pull.reconcile_all",
-    #     # 03:00 GST, after the rollups so a drift repair shows in the morning.
-    #     "schedule": crontab(hour=3, minute=0),
-    # },
-    #
     # --- M2: document expiry -------------------------------------------------
     # "document-expiry-alerts": {
     #     "task": "aber.workers.tasks.expiry_alerts.scan",

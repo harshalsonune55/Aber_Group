@@ -1,6 +1,13 @@
 # ADR 0001 — Own backend that syncs with Odoo, rather than building on Odoo
 
-**Status:** Accepted · **Date:** 2026-08-09
+**Status:** Superseded by [ADR 0006](0006-standalone-platform-no-odoo.md) ·
+**Date:** 2026-08-09
+
+> Kept for the reasoning, which still holds where it concerns owning the
+> real-estate domain. What changed is the other half: Odoo is no longer the
+> system of record for accounting and payroll, because there is no Odoo. The
+> option this ADR labels "3. Our own backend now, Odoo integration deferred"
+> is closest to where the project actually went.
 
 ## Context
 

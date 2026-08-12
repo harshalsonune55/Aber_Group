@@ -8,11 +8,13 @@ Modules are added here as each milestone lands:
     identity   (M1)  users, roles, permissions, devices, refresh tokens
     audit      (M1)  audit_log, audit_anchor
     hr         (M2)  employees, departments, documents, attendance, leave
-    sync       (M2)  odoo_link, odoo_sync_cursor, outbox_event, sync_conflict
     property   (M4)  developers, projects, properties, media
     crm        (M5)  partners, leads, viewings, deals
     commission (M6)  plans, rules, runs, entries, payouts
     analytics  (M7)  fact_* rollups, kpi_snapshot
+
+This platform is the single system of record — see ADR 0006. There is no sync
+package, because there is nothing to stay consistent with.
 """
 
 from __future__ import annotations

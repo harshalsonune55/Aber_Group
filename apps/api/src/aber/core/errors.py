@@ -72,18 +72,6 @@ class ConflictError(AberError):
     message = "This record changed on the server since you last saw it."
 
 
-class OwnershipViolationError(AberError):
-    """Attempted to write an Odoo field we do not own. See integrations/odoo/contracts.py.
-
-    This is a programming error, never a user error — it must fail loudly rather
-    than silently corrupting the other system.
-    """
-
-    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-    code = "sync_ownership_violation"
-    message = "Refused to write a field owned by the other system."
-
-
 class UpstreamUnavailableError(AberError):
     status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     code = "upstream_unavailable"

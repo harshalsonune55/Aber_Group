@@ -1,9 +1,8 @@
 # Aber Group — Internal Management Platform
 
 Internal platform for a UAE real-estate company: HR, properties, CRM and
-commissions, feeding a director transparency dashboard, synced with a
-self-hosted Odoo, delivered as one Flutter app for Android, iOS, Windows, macOS
-and Linux.
+commissions, feeding a director transparency dashboard, delivered as one
+Flutter app for Android, iOS, Windows, macOS and Linux.
 
 **Status: M0 complete** — the walking skeleton runs. See [build order](#build-order).
 
@@ -17,26 +16,26 @@ and Linux.
                 ▼                                           ▼
         ┌───────────────┐   ┌──────────┐   ┌────────┐   ┌────────────┐
         │  FastAPI API  │──▶│  Redis   │◀──│ Celery │   │   MinIO    │
-        └──────┬────────┘   └──────────┘   └───┬────┘   └────────────┘
-               ▼                                │ JSON-RPC
-        ┌────────────────┐                      ▼
-        │ Postgres 16    │◀─ webhook hint ─┌──────────────────┐
-        │ app + audit    │   (HMAC signed) │ Odoo 18 Community│
-        └────────────────┘                 └──────────────────┘
+        └──────┬────────┘   └──────────┘   └────────┘   └────────────┘
+               ▼
+        ┌────────────────┐
+        │ Postgres 16    │
+        │ app + audit    │
+        └────────────────┘
                     all behind Caddy 2 (TLS) on one UAE VPS
 ```
 
-Our Postgres is the system of record for the real-estate domain. Odoo is the
-system of record for accounting and payroll. Every cross-boundary write goes
-through a transactional outbox, and **no user-facing request ever blocks on
-Odoo** — see [ADR 0001](docs/adr/0001-own-backend-with-odoo-sync.md) and
-[ADR 0004](docs/adr/0004-odoo-sync-contract.md).
+**One system of record.** Our Postgres holds everything — HR, properties, CRM,
+deals, commissions, attendance and the audit log. There is no second system to
+stay consistent with, which removes what ADR 0001 called the central risk of the
+project. See [ADR 0006](docs/adr/0006-standalone-platform-no-odoo.md), which
+supersedes ADR 0001 and ADR 0004.
 
 ## Getting started
 
 Requirements: Python 3.12, Flutter 3.44+, PostgreSQL 14+, Redis. Docker is
-needed for the Odoo integration tests and for deployment, but not for day-to-day
-backend or Flutter work.
+needed for deployment, but not for day-to-day backend or Flutter work — the
+tests run against a local Postgres.
 
 ```bash
 make bootstrap      # venv, dependencies, Flutter packages, .env
@@ -65,15 +64,19 @@ make app-test           # 28 Flutter unit + widget tests
 make lint               # ruff check, ruff format --check, mypy
 ```
 
-One more needs the API up. In one terminal `make dev`, then:
+One more talks to the hosted API by default:
 
 ```bash
 make app-test-live      # real Dart client → real API → real Postgres, over a socket
 ```
 
-If the backend is not running it fails with
-`No backend at http://127.0.0.1:8000 — start it with 'make dev'` rather than
-passing silently.
+Override `API_URL` to point the same check at a local or staging backend:
+
+```bash
+make app-test-live API_URL=http://127.0.0.1:8000
+```
+
+If that backend is not reachable, the test fails rather than passing silently.
 
 ### What each layer actually covers
 
@@ -95,8 +98,7 @@ open http://localhost:8000/docs   # interactive API browser
 
 ### Not runnable on this machine yet
 
-`make test-odoo` needs Docker for a dockerised Odoo 18 — it becomes relevant at
-M2. Native app builds (`make app-macos`, `app-android`, …) need full Xcode and
+Native app builds (`make app-macos`, `app-android`, …) need full Xcode and
 completed Android SDK tooling; until then CI builds those on every push. See
 [docs/runbooks](docs/runbooks/).
 
@@ -105,8 +107,8 @@ completed Android SDK tooling; until then CI builds those on every push. See
 Fastest route to a live URL: Render → **New → Blueprint** → select this repo.
 `render.yaml` provisions two resources — the API and Postgres — and migrations run
 on start. No Redis and no Celery worker: neither is on a request path, Render's
-free plan does not allow workers at all, and both arrive with the Odoo sync tasks
-in M2.
+free plan does not allow workers at all, and neither is needed until there is
+background work to run.
 
 ```bash
 curl https://<your-service>.onrender.com/health
@@ -126,10 +128,9 @@ onto the async driver and derives the sync URL that Alembic and Celery use.
 
 | Path | Contents |
 |---|---|
-| `apps/api/` | FastAPI backend. `domain/` is pure logic with no I/O; `services/` orchestrates; `integrations/odoo/` is the anti-corruption layer. |
+| `apps/api/` | FastAPI backend. `domain/` is pure logic with no I/O; `services/` orchestrates; `integrations/` holds outbound adapters (storage, push). |
 | `apps/app/` | Flutter client, all five platforms. |
 | `packages/api_client/` | Dart client generated from the OpenAPI schema — never hand-edited. |
-| `odoo/addons/` | `aber_sync` and `aber_realestate_bridge` custom addons. |
 | `infra/` | Caddy, Postgres, MinIO, observability, backup, deploy. |
 | `docs/adr/` | Architecture decision records. Read these first. |
 
@@ -139,18 +140,18 @@ onto the async driver and derives the sync URL that Alembic and Celery use.
 |---|---|---|
 | M0 | Foundations and walking skeleton | **done** |
 | M1 | Identity, RBAC, audit spine | next |
-| M2 | HR core + first Odoo pull | |
+| M2 | HR core | |
 | M3 | Attendance, leave, offline sync engine | |
 | M4 | Properties and listings | |
 | M5 | CRM: lead → viewing → deal | |
-| M6 | Commission engine + Odoo deal/invoice push | |
+| M6 | Commission engine | |
 | M7 | Director transparency dashboard | |
 | M8 | Hardening, compliance, operations | |
 | M9 | Data migration, UAT, pilot rollout | |
 
-Odoo integration is proven in M2 rather than deferred, because it is the highest-
-uncertainty part of the system and the cheapest time to discover a problem with
-it is early.
+Identity comes first because every later milestone writes audit rows against a
+user, and retrofitting an actor onto an existing audit trail is not something
+you get to do twice.
 
 ## Conventions
 
@@ -159,7 +160,8 @@ it is early.
   real person.
 * **UUIDv7 primary keys, generatable by an offline client** — see
   [ADR 0003](docs/adr/0003-riverpod-and-offline-first.md).
-* **Nothing that has crossed the Odoo boundary is ever hard-deleted.**
+* **Nothing the business has acted on is ever hard-deleted** — soft delete
+  only, so the audit trail always has something to point at.
 * **Every write goes through the service layer**, because that is what writes the
   audit log — see [ADR 0005](docs/adr/0005-audit-chain-and-rtl-readiness.md).
 * **UI is English but built RTL-safe**, so Arabic later is a translation job.

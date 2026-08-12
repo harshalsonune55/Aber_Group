@@ -6,15 +6,13 @@ what the container healthcheck and the load balancer poll.
 `/health/ready` answers "can this instance serve traffic" and checks Postgres,
 the one dependency the API cannot serve a request without.
 
-Two deliberate exclusions:
+One deliberate exclusion:
 
-* **Odoo.** The whole architecture is built so the business keeps running while
-  Odoo is down; an Odoo outage must never take our API out of rotation.
 * **Redis.** No request path touches it — it is the Celery broker, read only by
   the worker process. Failing readiness on it would take the API down for
   something that cannot affect a single HTTP response.
 
-Both belong on the sync-health panel, not in a load balancer's rotation check.
+It belongs on an ops panel, not in a load balancer's rotation check.
 """
 
 from __future__ import annotations

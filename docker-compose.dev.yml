@@ -55,7 +55,7 @@ services:
       - worker
       - --loglevel=debug
       - --concurrency=2
-      - --queues=default,odoo_push,odoo_pull,notify,reports
+      - --queues=default,notify,reports
     volumes:
       - ./apps/api/src:/app/src
 

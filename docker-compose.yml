@@ -1,6 +1,6 @@
 # Base stack: everything the API needs to serve traffic.
-# Odoo lives in docker-compose.odoo.yml, observability in docker-compose.obs.yml,
-# so an Odoo problem can never take the core stack down with it.
+# Observability lives in docker-compose.obs.yml, so it can never take the core
+# stack down with it.
 #
 #   docker compose up -d
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
@@ -17,7 +17,6 @@ x-api-env: &api-env
   ABER_S3_ENDPOINT_URL: http://minio:9000
   ABER_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
   ABER_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
-  ABER_ODOO_URL: ${ABER_ODOO_URL:-http://odoo:8069}
 
 services:
   db:
@@ -124,7 +123,7 @@ services:
       - worker
       - --loglevel=info
       - --concurrency=4
-      - --queues=default,odoo_push,odoo_pull,notify,reports
+      - --queues=default,notify,reports
     environment: *api-env
     env_file: [.env]
     depends_on:

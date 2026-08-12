@@ -1,6 +1,12 @@
 # ADR 0004 — Field-level ownership as executable code
 
-**Status:** Accepted · **Date:** 2026-08-09
+**Status:** Superseded by [ADR 0006](0006-standalone-platform-no-odoo.md) ·
+**Date:** 2026-08-09
+
+> Never implemented. Kept because the technique — declaring field ownership as
+> a dict the writer asserts against, rather than as prose — is worth reaching
+> for the next time this platform has to stay consistent with a system it does
+> not own. Today it owns everything, so there is nothing to negotiate.
 
 ## Context
 

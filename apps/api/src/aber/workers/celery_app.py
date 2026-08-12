@@ -1,9 +1,8 @@
 """Celery application.
 
-Queues are separated so a slow or wedged Odoo cannot starve user-facing work
-such as notifications. In particular ``odoo_push`` and ``odoo_pull`` are
-isolated: when the Odoo circuit breaker is open those queues back up harmlessly
-while ``notify`` and ``default`` keep flowing.
+Queues are separated so slow bulk work cannot starve user-facing work. Report
+rollups can run for minutes; a push notification that waits behind one has
+missed the moment it was for.
 """
 
 from __future__ import annotations
@@ -40,8 +39,6 @@ def create_celery() -> Celery:
         result_expires=86400,
         task_default_queue="default",
         task_routes={
-            "aber.workers.tasks.odoo_push.*": {"queue": "odoo_push"},
-            "aber.workers.tasks.odoo_pull.*": {"queue": "odoo_pull"},
             "aber.workers.tasks.notifications.*": {"queue": "notify"},
             "aber.workers.tasks.rollups.*": {"queue": "reports"},
         },

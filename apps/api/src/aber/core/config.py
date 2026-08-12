@@ -128,19 +128,6 @@ class Settings(BaseSettings):
     s3_bucket_media: str = "aber-media"
     s3_presign_ttl_seconds: int = 900
 
-    # --- Odoo ---
-    odoo_url: str = "http://localhost:8069"
-    odoo_db: str = "aber"
-    odoo_username: str = "aber_integration"
-    odoo_api_key: str = ""
-    odoo_webhook_secret: str = ""
-    odoo_timeout_connect: float = 5.0
-    odoo_timeout_read: float = 30.0
-    odoo_breaker_fail_max: int = 5
-    odoo_breaker_reset_seconds: int = 60
-    odoo_sync_enabled: bool = False
-    odoo_sync_leads: bool = False
-
     # --- Notifications ---
     fcm_credentials_path: Path | None = None
     smtp_host: str = "localhost"

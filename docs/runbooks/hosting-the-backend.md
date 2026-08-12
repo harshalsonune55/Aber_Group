@@ -71,8 +71,8 @@ broker, read only by the worker process. The API serves fine without it, verifie
 by running the container with no `ABER_REDIS_URL` set at all. Provisioning it now
 would consume a workspace slot for something unused.
 
-Both arrive with the Odoo sync tasks in M2, on a paid instance type. Commented-out
-blocks for each sit at the bottom of `render.yaml`.
+Both arrive when there is background work to run, on a paid instance type.
+Commented-out blocks for each sit at the bottom of `render.yaml`.
 
 ### "Additional services & databases will exceed limit of 25"
 
@@ -200,6 +200,6 @@ credentials raises at startup and names every missing variable. That is
 deliberate: the alternative is an instance that looks healthy until the first
 login or document upload.
 
-**Odoo stays off until M2.** `ABER_ODOO_SYNC_ENABLED=false`. Nothing in the
-deploy depends on Odoo, and readiness deliberately excludes it — an Odoo outage
-must never take the API out of rotation.
+**One system, nothing external to configure.** Postgres is the only dependency
+a request touches, and readiness checks exactly that — see
+[ADR 0006](../adr/0006-standalone-platform-no-odoo.md).

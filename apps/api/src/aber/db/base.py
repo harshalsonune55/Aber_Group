@@ -4,7 +4,8 @@ Conventions enforced here rather than remembered per-model:
   * UUIDv7 primary keys, generatable by an offline client;
   * timezone-aware ``created_at`` / ``updated_at``;
   * ``created_by`` / ``updated_by`` actor columns for the audit trail;
-  * soft delete — nothing that has crossed the Odoo boundary is ever hard-deleted.
+  * soft delete — a record the business has acted on is never hard-deleted,
+    because the audit trail has to keep pointing at something.
 """
 
 from __future__ import annotations

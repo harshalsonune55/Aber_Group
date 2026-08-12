@@ -43,8 +43,6 @@ services:
 
       - key: ABER_FIELD_ENCRYPTION_KEY
         generateValue: true
-      - key: ABER_ODOO_WEBHOOK_SECRET
-        generateValue: true
 
       - key: WEB_CONCURRENCY
         value: "2"

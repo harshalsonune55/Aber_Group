@@ -1,6 +1,6 @@
 # ADR 0002 — FastAPI backend, Flutter client
 
-**Status:** Accepted · **Date:** 2026-08-09
+**Status:** Accepted · **Amended** by [ADR 0006](0006-standalone-platform-no-odoo.md), which voids the Odoo-addon argument below. The decision stands on its remaining reasons · **Date:** 2026-08-09
 
 ## Context
 

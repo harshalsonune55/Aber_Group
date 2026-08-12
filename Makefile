@@ -14,7 +14,6 @@ ANDROID_HOME ?= $(HOME)/Library/Android/sdk
 
 COMPOSE     := docker compose
 COMPOSE_DEV := $(COMPOSE) -f docker-compose.yml -f docker-compose.dev.yml
-COMPOSE_ODOO:= $(COMPOSE) -f docker-compose.yml -f docker-compose.odoo.yml
 
 TEST_DB_URL ?= postgresql+psycopg://aber:aber@localhost:5432/aber_test
 
@@ -64,7 +63,7 @@ dev: ## Run the API locally with hot reload
 .PHONY: worker
 worker: ## Run a Celery worker locally
 	cd $(API_DIR) && .venv/bin/celery -A aber.workers.celery_app:celery_app worker \
-	  --loglevel=info --concurrency=2 --queues=default,odoo_push,odoo_pull,notify,reports
+	  --loglevel=info --concurrency=2 --queues=default,notify,reports
 
 .PHONY: beat
 beat: ## Run Celery beat locally
@@ -97,12 +96,8 @@ test: ## Unit tests (no external dependencies)
 test-integration: db-create ## Integration tests against local Postgres
 	cd $(API_DIR) && ABER_TEST_DATABASE_URL="$(TEST_DB_URL)" .venv/bin/pytest tests/integration
 
-.PHONY: test-odoo
-test-odoo: ## Odoo sync tests (needs the Odoo container)
-	cd $(API_DIR) && .venv/bin/pytest tests/odoo -m odoo
-
 .PHONY: test-all
-test-all: test test-integration ## Everything that runs without Odoo
+test-all: test test-integration ## Unit and integration tests
 
 .PHONY: lint
 lint: ## ruff + mypy
@@ -132,10 +127,6 @@ app-analyze: ## Static analysis of the Flutter app
 app-test: ## Flutter unit and widget tests (no backend needed)
 	cd $(APP_DIR) && flutter test --exclude-tags live
 
-.PHONY: app-test-live
-app-test-live: ## Flutter tests against a running backend (needs `make dev`)
-	cd $(APP_DIR) && flutter test --tags live
-
 .PHONY: app-macos app-android app-ios app-windows app-linux
 app-macos: ## Run the app on macOS
 	cd $(APP_DIR) && flutter run -d macos
@@ -156,6 +147,11 @@ PHONE_API_URL ?= http://$(LAN_IP):8000
 # The deployed backend. Override for a different environment:
 #   make apk-hosted API_URL=https://staging.example.com
 API_URL ?= https://aber-api.onrender.com
+
+.PHONY: app-test-live
+app-test-live: ## Flutter tests against the hosted backend
+	cd $(APP_DIR) && flutter test --tags live \
+	  --dart-define=ABER_API_BASE_URL=$(API_URL)
 
 .PHONY: apk-hosted
 apk-hosted: ## Build a release APK pointed at the hosted backend
@@ -209,14 +205,6 @@ logs: ## Tail logs
 	$(COMPOSE_DEV) logs -f --tail=100
 ps: ## Show running services
 	$(COMPOSE_DEV) ps
-
-.PHONY: odoo-up odoo-down odoo-shell
-odoo-up: ## Start Odoo alongside the stack
-	$(COMPOSE_ODOO) up -d odoo-db odoo
-odoo-down: ## Stop Odoo
-	$(COMPOSE_ODOO) stop odoo odoo-db
-odoo-shell: ## Open an Odoo shell
-	$(COMPOSE_ODOO) exec odoo odoo shell -d aber
 
 .PHONY: seed
 seed: ## Load demo data

@@ -49,8 +49,6 @@ services:
       # read by the other.
       - key: ABER_FIELD_ENCRYPTION_KEY
         generateValue: true
-      - key: ABER_ODOO_WEBHOOK_SECRET
-        generateValue: true
 
       # Free instances get 512 MB; more workers only causes swapping.
       - key: WEB_CONCURRENCY
@@ -74,7 +72,7 @@ services:
 # unavailable for private services, workers and cron jobs), and including one
 # fails the entire blueprint. The beat schedule is empty until M2 anyway.
 #
-# Both arrive together with the Odoo sync tasks in M2, on a paid instance type:
+# Both arrive when the first background work does, on a paid instance type:
 #
 #   - type: keyvalue
 #     name: aber-redis
@@ -93,7 +91,7 @@ services:
 #     dockerCommand: >-
 #       celery -A aber.workers.celery_app:celery_app worker
 #       --loglevel=info --concurrency=2
-#       --queues=default,odoo_push,odoo_pull,notify,reports
+#       --queues=default,notify,reports
 #     envVars:
 #       - key: ABER_DATABASE_URL
 #         fromDatabase: { name: aber-db, property: connectionString }
